@@ -24,7 +24,17 @@ interface Voucher {
   DisplayRate: number;
   FinalRate: number;
   SaleEntryDate: string;
+  FinFromDt: string;
+  FinToDt: string;
   FinPrefix: string;
+  pax: number;
+  Add1: string;
+  Add2: string;
+  Pin: string;
+  Country: string;
+  CityName: string;
+  Phone: string;
+  Email: string;
 }
 
 interface VoucherListProps {

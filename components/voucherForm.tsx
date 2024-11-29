@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent } from "./ui/card";
 import VoucherList from "./voucherList";
 import { Button } from "./ui/button";
@@ -9,7 +9,9 @@ import { _Voucher } from "@/constants";
 import VoucherContext from "@/context/VoucherContext";
 
 const VoucherForm = () => {
-  const { setLastUpdatedVoucherDate, setSubmissionDate } = React.useContext(VoucherContext);
+  const [isMounted, setIsMounted] = useState(false)
+  const { setLastUpdatedVoucherDate, setSubmissionDate } =
+    React.useContext(VoucherContext);
   const [isSalesLoading, setIsSalesLoading] = useState(false);
   const [isCloudLoading, setIsCloudLoading] = useState(false);
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
@@ -27,8 +29,16 @@ const VoucherForm = () => {
       if (!response?.ok) {
         toast.error("No Data Found");
       } else {
-        setVouchers(data?.data);
-        toast.success("Fetched Data For Selected Range!");
+        const nepalVouchers = data.data.filter(
+          (voucher: _Voucher) => voucher.Country === "Nepal"
+        ); // Filter vouchers
+        console.log('nepalVouchers', nepalVouchers)
+        if (nepalVouchers.length > 0) {
+          setVouchers(nepalVouchers);
+          toast.success("Fetched Data For Selected Range!");
+        } else {
+          toast.error(`No Nepal vouchers found from ${dateRange.start} to ${dateRange.end}!`);
+        }
       }
       // console.log('data', data?.data)
 
@@ -40,30 +50,6 @@ const VoucherForm = () => {
     }
   };
 
-  // const handleFetchPurchaseEntries = async () => {
-  //   try {
-  //     setIsSalesLoading(true);
-  //     const response = await fetch(
-  //       `/api/sales?startDate=${dateRange.start}&endDate=${dateRange.end}`
-  //     );
-
-  //     const data = await response?.json();
-  //     if (!response?.ok) {
-  //       toast.error("No Data Found");
-  //     } else {
-  //       setVouchers(data?.data);
-  //       toast.success("Fetched Data For Selected Range!");
-  //     }
-  //     // console.log('data', data?.data)
-
-  //     setIsSalesLoading(false);
-  //   } catch (error) {
-  //     console.error("Error fetching data:", error);
-  //     toast.error("Error Fetching The Data :(");
-  //     setIsSalesLoading(false);
-  //   }
-  // };
-
   const handleSubmitToCloud = async () => {
     try {
       setIsCloudLoading(true);
@@ -71,35 +57,64 @@ const VoucherForm = () => {
       const currentDate = new Date().toISOString().split("T")[0];
       setSubmissionDate(currentDate);
       for (let i = 0; i < selectedEntries.length; i += vouchersPerRequest) {
-        const dataForCloud = selectedEntries
-          .slice(i, i + vouchersPerRequest)
-          .map((index) => {
-            const voucher = vouchers[index];
-            return {
-              branchName: "AirIQ",
-              vouchertype: "Sales",
-              voucherno: `${voucher.FinPrefix}/${voucher.InvoiceNo}`,
-              voucherdate: voucher.SaleEntryDate.split("T")[0].replace(
-                /-/g,
-                "/"
-              ),
-              narration: voucher.Pnr,
-              ledgerAllocation: [
-                {
-                  lineno: 1,
-                  ledgerName: voucher.AccountName,
-                  amount: voucher.FinalRate.toFixed(2),
-                  drCr: "dr",
-                },
-                {
-                  lineno: 2,
-                  ledgerName: "Domestic Base Fare",
-                  amount: voucher.FinalRate.toFixed(2),
-                  drCr: "cr",
-                },
-              ],
-            };
-          });
+       const dataForCloud = selectedEntries
+         .slice(i, i + vouchersPerRequest)
+         .flatMap((index) => {
+           // Use flatMap to create two entries per voucher
+           const voucher = vouchers[index];
+           return [
+             {
+               branchName: "AirIQ",
+               vouchertype: "Purchase", // First entry with Purchase type
+               voucherno: `${voucher.FinPrefix}/${voucher.InvoiceNo}`,
+               voucherdate: voucher.SaleEntryDate.split("T")[0].replace(
+                 /-/g,
+                 "/"
+               ),
+               narration: `${voucher.Prefix}-${voucher.SaleID}, PNR :- ${voucher.Pnr}, PAX :- ${voucher.pax}`,
+               ledgerAllocation: [
+                 {
+                   lineno: 1,
+                   ledgerName: "Air IQ",
+                   ledgerAddress: `Sevoke Road, Siliguri, West Bengal - 734001`,
+                   amount: voucher.FinalRate.toFixed(2),
+                   drCr: "dr",
+                 },
+                 {
+                   lineno: 2,
+                   ledgerName: "Domestic Base Fare",
+                   amount: voucher.FinalRate.toFixed(2),
+                   drCr: "cr",
+                 },
+               ],
+             },
+             {
+               branchName: "AirIQ",
+               vouchertype: "Sales", // Second entry with Sales type
+               voucherno: `${voucher.FinPrefix}/${voucher.InvoiceNo}`,
+               voucherdate: voucher.SaleEntryDate.split("T")[0].replace(
+                 /-/g,
+                 "/"
+               ),
+               narration: `${voucher.Prefix}-${voucher.SaleID}, PNR :- ${voucher.Pnr}, PAX :- ${voucher.pax}`,
+               ledgerAllocation: [
+                 {
+                   lineno: 1,
+                   ledgerName: voucher.AccountName,
+                   ledgerAddress: `${voucher.Add1}, ${voucher.Add2}, ${voucher.CityName} - ${voucher.Pin}`,
+                   amount: voucher.FinalRate.toFixed(2),
+                   drCr: "dr",
+                 },
+                 {
+                   lineno: 2,
+                   ledgerName: "Domestic Base Fare",
+                   amount: voucher.FinalRate.toFixed(2),
+                   drCr: "cr",
+                 },
+               ],
+             },
+           ];
+         });
 
         const response = await fetch("/api/cloud", {
           method: "POST",
@@ -117,9 +132,10 @@ const VoucherForm = () => {
         } else {
           if (i !== 0) {
             toast.success(`${i} Vouchers Pushed!`);
-          } 
+          }
         }
       }
+
 
       const lastVoucher = vouchers[vouchers.length - 1];
       const lastVoucherDate = lastVoucher?.InvoiceEntryDate;
@@ -134,10 +150,19 @@ const VoucherForm = () => {
       setIsCloudLoading(false);
     } catch (error) {
       console.error("Error submitting data:", error);
-      toast.error("Error Submitting Data To Cloud!")
+      toast.error("Error Submitting Data To Cloud!");
       setIsCloudLoading(false);
     }
   };
+
+  useEffect(()=>{
+    setIsMounted(true);
+  },[])
+
+  if(!isMounted){
+    return;
+  }
+
   return (
     <>
       <Card>
