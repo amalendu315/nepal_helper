@@ -1,15 +1,14 @@
 import axios from "axios";
 import { NextResponse } from "next/server";
 
-import { cloudURL, cloudAuthToken } from "@/constants/index";
-
+import { purchaseCloudURL, purchaseCloudAuthToken } from "@/constants/index";
 
 interface ResponseType {
   data: [
     {
-      statusmessage:string;
-      statuscode:string;
-      voucherno:string;
+      statusmessage: string;
+      statuscode: string;
+      voucherno: string;
     }
   ];
 }
@@ -19,13 +18,13 @@ export async function POST(request: Request) {
     const { data } = await request.json();
 
     // Submit the data to the cloud server using Axios
-    const response:ResponseType = await axios.post(
-      cloudURL,
+    const response: ResponseType = await axios.post(
+      purchaseCloudURL,
       { data: data },
       {
         headers: {
           "Content-Type": "application/json",
-          Authtoken: cloudAuthToken,
+          Authtoken: purchaseCloudAuthToken,
         },
       }
     );

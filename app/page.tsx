@@ -1,5 +1,5 @@
 "use client";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import VoucherForm from "@/components/voucherForm";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import Sidebar from "@/components/sidebar";
 export default function Home() {
   const {isAuthenticated, setIsAuthenticated} = useContext(AuthContext)
   const [isLoading, setIsLoading] = useState(false)
-  const [showLoginForm, setShowLoginForm] = useState(true);
+  const [showLoginForm, setShowLoginForm] = useState(!isAuthenticated);
   const [userName, setUserName] = useState("");
   const [passWord, setPassWord] = useState("");
   const defaultLoginCreds = {
@@ -19,21 +19,50 @@ export default function Home() {
     password:"Admin"
   }
 
-  const handleLogin = (
-    username:string,
-    password:string,
-  ) => {
-    setIsLoading(true);
-    if (username === defaultLoginCreds.username && password === defaultLoginCreds.password) {
-      setIsAuthenticated(true);
-      setShowLoginForm(false);
-      toast.success("Logged In")
-      setIsLoading(false);
-    } else {
-      toast.error("Invalid Credentials");
-      setIsLoading(false);
-    }
-  };
+   function generateToken() {
+     const token = `${Math.floor(Math.random() * 9000) + 1001}`;
+     return token;
+   }
+
+   useEffect(() => {
+     const token = localStorage.getItem("token");
+     const expirationTimeString = localStorage.getItem("tokenExpiration");
+     if (token && expirationTimeString) {
+       const currentTime = new Date().getTime();
+       const expirationTime = parseInt(expirationTimeString); // Convert to number
+
+       if (currentTime <= expirationTime) {
+         setIsAuthenticated(true);
+       } else {
+         // Token has expired, log the user out
+         localStorage.removeItem("authToken");
+         localStorage.removeItem("tokenExpiration");
+         setIsAuthenticated(false);
+       }
+     } else {
+       setIsAuthenticated(false);
+     }
+   }, []);
+
+   const handleLogin = (username: string, password: string) => {
+     setIsLoading(true);
+     if (
+       username === defaultLoginCreds.username &&
+       password === defaultLoginCreds.password
+     ) {
+       const token = generateToken();
+       const expirationTime = new Date().getTime() + 60 * 60 * 1000;
+       setIsAuthenticated(true);
+       localStorage.setItem("token", token);
+       localStorage.setItem("tokenExpiration", `${expirationTime}`);
+       toast.success("Logged In");
+       setShowLoginForm(false);
+       setIsLoading(false);
+     } else {
+       toast.error("Invalid Credentials");
+       setIsLoading(false);
+     }
+   };
 
   if (showLoginForm) {
     return (

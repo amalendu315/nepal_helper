@@ -1,13 +1,21 @@
-// components/SideHeader.jsx
-
 "use client";
 import React, { useContext } from "react";
 import VoucherContext from "@/context/VoucherContext";
 import AuthContext from "@/context/AuthContext";
 
 const SideHeader = () => {
-  const { isAuthenticated } = useContext(AuthContext)
-  const { lastUpdatedVoucherDate, submissionDate } = useContext(VoucherContext);
+  const { isAuthenticated } = useContext(AuthContext);
+  const { lastUpdatedVoucherDate, submissionDate, pushedVoucherRanges } =
+    useContext(VoucherContext);
+
+  function getRandomColor() {
+    const letters = "0123456789ABCDEF";
+    let color = "#";
+    for (let i = 0; i < 6; i++) {
+      color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+  }
 
   return (
     <aside className="bg-gray-800 text-white p-4 w-64 h-screen fixed top-0 left-0 flex flex-col justify-center items-center gap-8">
@@ -27,7 +35,25 @@ const SideHeader = () => {
                 {submissionDate || "N/A"}
               </span>
             </p>
-            {/* Add any other details you want to display */}
+            <div className="flex flex-col items-center justify-center">
+              <h3 className="text-center mb-3">
+                Tally Entry Dates with Voucher Ranges:
+              </h3>
+              <ul className="text-center">
+                {Object.entries(pushedVoucherRanges).map(([key, range]) =>
+                  range?.startVoucher !== range?.endVoucher ? (
+                    <li
+                      key={key}
+                      className="text-md font-bold"
+                      style={{ color: getRandomColor() }}
+                    >
+                      {range.startDate} - {range.endDate}: {range.startVoucher}{" "}
+                      - {range.endVoucher}
+                    </li>
+                  ) : null
+                )}
+              </ul>
+            </div>
           </div>
         </>
       )}

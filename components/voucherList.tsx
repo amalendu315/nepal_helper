@@ -1,6 +1,9 @@
 "use client";
+
 import { useEffect, useMemo, useState } from "react";
-import { format } from "date-fns";
+import { format, isSameDay, parseISO } from "date-fns";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import {
   Table,
   TableBody,
@@ -24,8 +27,8 @@ interface Voucher {
   DisplayRate: number;
   FinalRate: number;
   SaleEntryDate: string;
-  FinFromDt: string;
-  FinToDt: string;
+  FinFromDate: string;
+  FinToDate: string;
   FinPrefix: string;
   pax: number;
   Add1: string;
@@ -35,6 +38,10 @@ interface Voucher {
   CityName: string;
   Phone: string;
   Email: string;
+  Types: string;
+  AirlineCode: string;
+  FromSector: string;
+  ToSectors: string;
 }
 
 interface VoucherListProps {
@@ -51,27 +58,50 @@ export default function VoucherList({
   const [isMounted, setIsMounted] = useState(false);
   const [selectAll, setSelectAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [vouchersPerPage] = useState(50);
-  // Calculate the indexes for the current page
+  const [vouchersPerPage] = useState<number>(50);
+
+  // Filters
+  const [filterInvoice, setFilterInvoice] = useState<number | null>(null);
+  const [filterDate, setFilterDate] = useState<Date | null>(null);
+  const [filterPnr, setFilterPnr] = useState<string>("");
+
   const indexOfLastVoucher = currentPage * vouchersPerPage;
   const indexOfFirstVoucher = indexOfLastVoucher - vouchersPerPage;
-  const currentVouchers = useMemo(
-    () => vouchers.slice(indexOfFirstVoucher, indexOfLastVoucher),
-    [vouchers, indexOfFirstVoucher, indexOfLastVoucher]
-  );
 
-  //@ts-expect-error due to index
-  const handleCheckboxChange = (index) => {
-    //@ts-expect-error due to prevSelected
-    onSelect((prevSelected) => {
-      const updatedSelection = [...prevSelected];
-      if (updatedSelection.includes(index)) {
-        updatedSelection.splice(updatedSelection.indexOf(index), 1);
-      } else {
-        updatedSelection.push(index);
-      }
-      return updatedSelection;
+  const filteredVouchers = useMemo(() => {
+    return vouchers.filter((voucher) => {
+      const matchesInvoiceNumber =
+        filterInvoice === null || Number(voucher.InvoiceNo) === filterInvoice;
+
+      const matchesDate =
+        !filterDate || isSameDay(parseISO(voucher.SaleEntryDate), filterDate);
+
+      const matchesPnr =
+        filterPnr === "" ||
+        voucher.Pnr?.toLowerCase().includes(filterPnr.toLowerCase());
+
+      // const matchesType =
+      //   filterType === "All" ||
+      //   voucher.Types?.toLowerCase() === filterType.toLowerCase();
+
+      return (
+ matchesInvoiceNumber && matchesDate && matchesPnr
+      );
     });
+  }, [vouchers, filterInvoice, filterDate, filterPnr]);
+
+  const currentVouchers = useMemo(() => {
+    return filteredVouchers.slice(indexOfFirstVoucher, indexOfLastVoucher);
+  }, [filteredVouchers, indexOfFirstVoucher, indexOfLastVoucher]);
+
+  const handleCheckboxChange = (index: number) => {
+    const updatedSelection = [...selectedEntries];
+    if (updatedSelection.includes(index)) {
+      updatedSelection.splice(updatedSelection.indexOf(index), 1);
+    } else {
+      updatedSelection.push(index);
+    }
+    onSelect(updatedSelection);
   };
 
   const handleSelectAllChange = () => {
@@ -85,91 +115,136 @@ export default function VoucherList({
 
   if (!isMounted) {
     return null;
-  } else {
-    return (
-      <div className="overflow-y-auto bg-slate-100 mt-3 pb-4 pt-2">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>
-                <Checkbox
-                  checked={selectAll}
-                  onCheckedChange={handleSelectAllChange}
-                />
-              </TableHead>
-              <TableHead>Invoice ID</TableHead> {/* Added Invoice ID */}
-              <TableHead>Invoice No</TableHead>
-              <TableHead>Sale ID</TableHead> {/* Added Sale ID */}
-              <TableHead>Invoice Entry Date</TableHead>
-              {/* Added Invoice Entry Date */}
-              <TableHead>Prefix</TableHead> {/* Added Prefix */}
-              <TableHead>PNR</TableHead>
-              <TableHead>Account Name</TableHead>
-              <TableHead>Fin Prefix</TableHead> {/* Added Display Rate */}
-              <TableHead>Final Rate</TableHead>
-              <TableHead>Sale Entry Date</TableHead>{" "}
-              {/* Added Sale Entry Date */}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {currentVouchers.map((voucher, index) => (
-              <TableRow key={index}>
-                <TableCell>
-                  <Checkbox
-                    checked={selectAll || selectedEntries.includes(index)}
-                    onCheckedChange={() => handleCheckboxChange(index)}
-                  />
-                </TableCell>
-                <TableCell>{voucher.InvoiceID}</TableCell>
-                <TableCell>{voucher.InvoiceNo}</TableCell>
-                <TableCell>{voucher.SaleID}</TableCell> {/* Added Sale ID */}
-                <TableCell>
-                  {format(
-                    new Date(voucher.InvoiceEntryDate),
-                    "MM/dd/yyyy HH:mm:ss"
-                  )}
-                </TableCell>
-                {/* Added Invoice Entry Date */}
-                <TableCell>{voucher.Prefix}</TableCell> {/* Added Prefix */}
-                <TableCell>{voucher.Pnr}</TableCell>
-                <TableCell>{voucher.AccountName}</TableCell>
-                <TableCell>{voucher.FinPrefix}</TableCell>
-                {/* Added Display Rate */}
-                <TableCell>{voucher.FinalRate}</TableCell>
-                <TableCell>
-                  {format(
-                    new Date(voucher.SaleEntryDate),
-                    "MM/dd/yyyy HH:mm:ss"
-                  )}
-                </TableCell>
-                {/* Added Sale Entry Date */}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {/* Pagination controls */}
-        <div className="flex items-center justify-center mt-4 gap-2">
-          <Button
-            onClick={() => setCurrentPage(currentPage - 1)}
-            disabled={currentPage === 1}
-            variant="outline"
-            size="sm"
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-gray-500">
-            Page {currentPage} of {Math.ceil(vouchers.length / vouchersPerPage)}
-          </span>
-          <Button
-            onClick={() => setCurrentPage(currentPage + 1)}
-            disabled={indexOfLastVoucher >= vouchers.length}
-            variant="outline"
-            size="sm"
-          >
-            Next
-          </Button>
+  }
+
+  return (
+    <div className="overflow-y-auto bg-slate-100 mt-3 pb-4 pt-2">
+      <div className="flex gap-4 mb-4 items-center justify-center">
+        <div>
+          <label className="text-sm text-gray-700">
+            Filter by Invoice No: &nbsp;
+          </label>
+          <input
+            type="number"
+            value={filterInvoice || ""}
+            onChange={(e) => {
+              const value = e.target.value;
+              setFilterInvoice(value === "" ? null : Number(value));
+            }}
+            className="border rounded p-2"
+            placeholder="Enter Invoice Number"
+          />
+        </div>
+        {/* Date Picker */}
+        <div>
+          <label className="text-sm text-gray-700">
+            Filter by Sale Entry Date: &nbsp;
+          </label>
+          <DatePicker
+            selected={filterDate}
+            onChange={(date: Date | null) => setFilterDate(date)}
+            dateFormat="MM/dd/yyyy"
+            className="border rounded p-2"
+            placeholderText="Select a date"
+          />
+        </div>
+
+        {/* PNR Filter */}
+        <div>
+          <label className="text-sm text-gray-700">Filter by PNR: &nbsp;</label>
+          <input
+            type="text"
+            value={filterPnr}
+            onChange={(e) => setFilterPnr(e.target.value)}
+            className="border rounded p-2"
+            placeholder="Enter PNR"
+          />
         </div>
       </div>
-    );
-  }
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>
+              <Checkbox
+                checked={selectAll}
+                onCheckedChange={handleSelectAllChange}
+              />
+            </TableHead>
+            <TableHead>Invoice ID</TableHead>
+            <TableHead>Invoice No</TableHead>
+            <TableHead>Sale ID</TableHead>
+            <TableHead>Invoice Entry Date</TableHead>
+            <TableHead>PNR</TableHead>
+            <TableHead>Account Name</TableHead>
+            <TableHead>Pax Qty</TableHead>
+            <TableHead>Total Rate</TableHead>
+            <TableHead>Sale Entry Date</TableHead>
+            <TableHead>Types</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {currentVouchers.map((voucher, index) => (
+            <TableRow key={voucher.InvoiceID}>
+              <TableCell>
+                <Checkbox
+                  checked={selectAll || selectedEntries.includes(index)}
+                  onCheckedChange={() => handleCheckboxChange(index)}
+                />
+              </TableCell>
+              <TableCell>{voucher.InvoiceID}</TableCell>
+              <TableCell>{voucher.InvoiceNo}</TableCell>
+              <TableCell>{voucher.SaleID}</TableCell>
+              <TableCell>
+                {format(
+                  parseISO(voucher.InvoiceEntryDate),
+                  "MM/dd/yyyy HH:mm:ss"
+                )}
+              </TableCell>
+              <TableCell>{voucher.Pnr}</TableCell>
+              <TableCell>{voucher.AccountName}</TableCell>
+              <TableCell>{voucher.pax}</TableCell>
+              <TableCell>
+                {new Intl.NumberFormat("en-IN", {
+                  style: "currency",
+                  currency: "INR",
+                }).format(voucher.FinalRate * voucher.pax)}
+              </TableCell>
+              <TableCell>
+                {format(parseISO(voucher.SaleEntryDate), "MM/dd/yyyy HH:mm:ss")}
+              </TableCell>
+              <TableCell>{voucher.Types}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      <div className="flex items-center justify-center mt-4 gap-2">
+        <Button
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+          variant="outline"
+          size="sm"
+        >
+          Previous
+        </Button>
+        <span className="text-sm text-gray-500">
+          Page {currentPage} of{" "}
+          {Math.ceil(filteredVouchers.length / vouchersPerPage)}
+        </span>
+        <Button
+          onClick={() =>
+            setCurrentPage((prev) =>
+              indexOfLastVoucher < filteredVouchers.length ? prev + 1 : prev
+            )
+          }
+          disabled={indexOfLastVoucher >= filteredVouchers.length}
+          variant="outline"
+          size="sm"
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  );
 }

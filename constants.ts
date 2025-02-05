@@ -21,6 +21,9 @@ export interface _Voucher {
   CityName: string;
   Phone: string;
   Email: string;
+  AirlineCode: string;
+  FromSector: string;
+  ToSectors: string;
 }
 
 export const data = [
