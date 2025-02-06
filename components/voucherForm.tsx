@@ -86,7 +86,7 @@ const VoucherForm = () => {
        toast.error("No Data Found");
      } else {
        const nepalVouchers:_Voucher[] = data.data.filter(
-         (voucher: _Voucher) => voucher.Country === "Nepal"
+         (voucher: _Voucher) => voucher.Country?.toLowerCase() === "nepal"
        );
 
        if (nepalVouchers.length > 0) {
