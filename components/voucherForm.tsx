@@ -23,6 +23,7 @@ interface VoucherEntry {
     ledgerAddress?: string;
     amount: string;
     drCr: "dr" | "cr";
+    description: string[] | [];
   }[];
 }
 export interface _Voucher {
@@ -213,12 +214,14 @@ const VoucherForm = () => {
                ledgerAddress: `Sevoke Road, Siliguri, West Bengal - 734001`,
                amount: (voucher.FinalRate * voucher.pax).toFixed(2),
                drCr: "dr",
+               description: [],
              },
              {
                lineno: 2,
                ledgerName: "Domestic Base Fare",
                amount: (voucher.FinalRate * voucher.pax).toFixed(2),
                drCr: "cr",
+               description: [],
              },
            ],
          });
@@ -236,12 +239,18 @@ const VoucherForm = () => {
                ledgerAddress: `${voucher.Add1}, ${voucher.Add2}, ${voucher.CityName} - ${voucher.Pin}`,
                amount: (voucher.FinalRate * voucher.pax).toFixed(2),
                drCr: "dr",
+               description: [
+                 `${voucher.AirlineCode}`,
+                 "Sector",
+                 `${voucher.FromSector} ${voucher.ToSectors}`,
+               ],
              },
              {
                lineno: 2,
                ledgerName: "Domestic Base Fare",
                amount: (voucher.FinalRate * voucher.pax).toFixed(2),
                drCr: "cr",
+               description: [],
              },
            ],
          });
