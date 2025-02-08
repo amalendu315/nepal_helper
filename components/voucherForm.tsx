@@ -213,14 +213,14 @@ const VoucherForm = () => {
                ledgerName: "Air IQ",
                ledgerAddress: `Sevoke Road, Siliguri, West Bengal - 734001`,
                amount: (voucher.FinalRate * voucher.pax).toFixed(2),
-               drCr: "dr",
+               drCr: "cr",
                description: [],
              },
              {
                lineno: 2,
-               ledgerName: "Domestic Base Fare",
+               ledgerName: "Domestic Base Fare Purchase",
                amount: (voucher.FinalRate * voucher.pax).toFixed(2),
-               drCr: "cr",
+               drCr: "dr",
                description: [],
              },
            ],
@@ -231,7 +231,7 @@ const VoucherForm = () => {
            vouchertype: "Sales",
            voucherno: `AQNS/${voucher.InvoiceNo}`,
            voucherdate: voucher.SaleEntryDate.split("T")[0].replace(/-/g, "/"),
-           narration: `${voucher.Prefix}-${voucher.SaleID}, PNR :- ${voucher.Pnr}, PAX :- ${voucher.pax}, AIRLINE_CODE :- ${voucher.AirlineCode}, SECTOR :- '${voucher.FromSector} ${voucher.ToSectors}'`,
+           narration: `${voucher.Prefix}-${voucher.SaleID}, PNR :- ${voucher.Pnr}, PAX :- ${voucher.pax}, AIRLINE_CODE :- ${voucher.AirlineCode}, SECTOR :- ${voucher.FromSector} ${voucher.ToSectors}`,
            ledgerAllocation: [
              {
                lineno: 1,
@@ -239,18 +239,18 @@ const VoucherForm = () => {
                ledgerAddress: `${voucher.Add1}, ${voucher.Add2}, ${voucher.CityName} - ${voucher.Pin}`,
                amount: (voucher.FinalRate * voucher.pax).toFixed(2),
                drCr: "dr",
-               description: [
-                 `${voucher.AirlineCode}`,
-                 "Sector",
-                 `${voucher.FromSector} ${voucher.ToSectors}`,
-               ],
+               description: [],
              },
              {
                lineno: 2,
                ledgerName: "Domestic Base Fare",
                amount: (voucher.FinalRate * voucher.pax).toFixed(2),
                drCr: "cr",
-               description: [],
+               description: [
+                 `${voucher.AirlineCode}`,
+                 "Sector",
+                 `${voucher.FromSector} ${voucher.ToSectors}`,
+               ],
              },
            ],
          });
@@ -264,7 +264,8 @@ const VoucherForm = () => {
           toast.error(`Some selected vouchers are already pushed!`);
           throw new Error(`DataForCloud contains undefined vouchers!`);
         }
-
+        console.log("dataForPurchase", dataForPurchase);
+        console.log("dataForPurchase", dataForSales);
        await submitVouchers(dataForPurchase, "purchase");
        await submitVouchers(dataForSales, "sale");
      }
