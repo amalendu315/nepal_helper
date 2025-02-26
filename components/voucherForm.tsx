@@ -53,6 +53,10 @@ export interface _Voucher {
   AirlineCode: string;
   FromSector: string;
   ToSectors: string;
+  CountryID: number;
+  CountryMain: string;
+  CityEntryMainID: number;
+  State: string;
 }
 
 type DataForSales = VoucherEntry[];
@@ -86,21 +90,55 @@ const VoucherForm = () => {
      if (!response?.ok) {
        toast.error("No Data Found");
      } else {
-       const nepalVouchers:_Voucher[] = data.data.filter(
-         (voucher: _Voucher) => voucher.Country?.toLowerCase() === "nepal"
-       );
+       const testKeywords = ["test", "dummy", "demo", "xyz", "airline test"];
+
+      const nepalVouchers: _Voucher[] = data.data
+        .filter((voucher: _Voucher) => {
+          const countryLower = voucher.Country?.toLowerCase() || "";
+          const countryMainLower = voucher.CountryMain?.toLowerCase() || "";
+          const stateLower = voucher.State?.toLowerCase() || "";
+
+          return (
+            voucher.Types === "Invoice" && // Ensure only Invoice type vouchers
+            !testKeywords.some((keyword) =>
+              voucher.AccountName?.toLowerCase().includes(keyword)
+            ) && // Exclude test accounts
+            (countryLower === "nepal" ||
+              countryMainLower === "nepal" ||
+              voucher.CountryID === 4 ||
+              stateLower.includes("province"))
+          );
+        })
+        .sort((a:_Voucher, b:_Voucher) => {
+          const invoiceA = Number(a.InvoiceNo) || 0;
+          const invoiceB = Number(b.InvoiceNo) || 0;
+
+          if (invoiceA !== invoiceB) {
+            return invoiceA - invoiceB;
+          }
+
+          const dateA = new Date(a.SaleEntryDate).getTime() || 0;
+          const dateB = new Date(b.SaleEntryDate).getTime() || 0;
+
+          return dateB - dateA;
+        });
+
 
        if (nepalVouchers.length > 0) {
          setVouchers(nepalVouchers);
-         const totalFinalRate = nepalVouchers?.reduce((acc, voucher) => {
+
+         const totalFinalRate = nepalVouchers.reduce((acc, voucher) => {
            const voucherFinalRate =
              typeof voucher.FinalRate === "number"
                ? voucher.FinalRate * voucher.pax
                : 0;
            return acc + voucherFinalRate;
          }, 0);
+
          setTotalSum(totalFinalRate);
-         toast.success(`Fetched ${nepalVouchers.length} Vouchers For Selected Range!`);
+         toast.success(
+           `Fetched ${nepalVouchers.length} Nepal Vouchers For Selected Range!`
+         );
        } else {
          toast.error(
            `No Nepal vouchers found from ${dateRange.start} to ${dateRange.end}!`
@@ -114,6 +152,7 @@ const VoucherForm = () => {
      setIsSalesLoading(false);
    }
  };
+
 
    const handleExportToExcel = () => {
      if (vouchers.length === 0) {
@@ -178,10 +217,19 @@ const VoucherForm = () => {
      const currentDate = new Date().toISOString().split("T")[0];
      setSubmissionDate(currentDate);
 
-     const firstSelectedVoucher = vouchers[selectedEntries[0]];
-     const lastSelectedVoucherIndex =
-       selectedEntries[selectedEntries.length - 1];
-     const lastSelectedVoucher = vouchers[lastSelectedVoucherIndex];
+    const firstSelectedVoucher =
+      vouchers.find((v) => v.InvoiceNo === selectedEntries[0]) ?? null;
+    const lastSelectedVoucher =
+      vouchers.find(
+        (v) => v.InvoiceNo === selectedEntries[selectedEntries.length - 1]
+      ) ?? null;
+
+    // Validate voucher existence
+    if (!firstSelectedVoucher || !lastSelectedVoucher) {
+      toast.error("Selected vouchers not found!");
+      setIsCloudLoading(false);
+      return;
+    }
 
      const rangeKey = `${dateRange.start}-${dateRange.end}`;
 
@@ -189,9 +237,12 @@ const VoucherForm = () => {
        const dataForPurchase:DataForPurchase = [];
        const dataForSales:DataForSales = [];
 
-       selectedEntries.slice(i, i + vouchersPerRequest).forEach((index) => {
-         const voucher = vouchers[index];
-
+       selectedEntries.slice(i, i + vouchersPerRequest).forEach((invoiceNo) => {
+         const voucher = vouchers?.find((v) => v.InvoiceNo === invoiceNo);
+          if (!voucher) {
+            console.warn(`⚠️ Voucher with InvoiceNo ${invoiceNo} not found!`);
+            return;
+          }
          if (
            pushedVoucherRanges[rangeKey] &&
            (voucher.InvoiceNo === pushedVoucherRanges[rangeKey].startVoucher ||
@@ -265,7 +316,7 @@ const VoucherForm = () => {
           throw new Error(`DataForCloud contains undefined vouchers!`);
         }
         console.log("dataForPurchase", dataForPurchase);
-        console.log("dataForPurchase", dataForSales);
+        console.log("dataForSales", dataForSales);
        await submitVouchers(dataForPurchase, "purchase");
        await submitVouchers(dataForSales, "sale");
      }

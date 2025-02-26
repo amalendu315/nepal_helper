@@ -10,8 +10,8 @@ export interface _Voucher {
   DisplayRate: number;
   FinalRate: number;
   SaleEntryDate: string;
-  FinFromDt: string;
-  FinToDt: string;
+  FinFromDate: string;
+  FinToDate: string;
   FinPrefix: string;
   pax: number;
   Add1: string;
@@ -21,9 +21,14 @@ export interface _Voucher {
   CityName: string;
   Phone: string;
   Email: string;
+  Types: string;
   AirlineCode: string;
   FromSector: string;
   ToSectors: string;
+  CountryID: number;
+  CountryMain: string;
+  CityEntryMainID: number;
+  State: string;
 }
 
 export const data = [

@@ -42,6 +42,10 @@ interface Voucher {
   AirlineCode: string;
   FromSector: string;
   ToSectors: string;
+  CountryID: number;
+  CountryMain: string;
+  CityEntryMainID: number;
+  State: string;
 }
 
 interface VoucherListProps {
@@ -68,46 +72,70 @@ export default function VoucherList({
   const indexOfLastVoucher = currentPage * vouchersPerPage;
   const indexOfFirstVoucher = indexOfLastVoucher - vouchersPerPage;
 
-  const filteredVouchers = useMemo(() => {
-    return vouchers.filter((voucher) => {
-      const matchesInvoiceNumber =
-        filterInvoice === null || Number(voucher.InvoiceNo) === filterInvoice;
+ const filteredVouchers = useMemo(() => {
+   return vouchers.filter((voucher) => {
+     const countryLower = voucher.Country?.toLowerCase() || "";
+     const stateLower = voucher.State?.toLowerCase() || "";
+     const countryMainLower = voucher.CountryMain?.toLowerCase() || "";
+     const countryID = voucher.CountryID;
 
-      const matchesDate =
-        !filterDate || isSameDay(parseISO(voucher.SaleEntryDate), filterDate);
+     // Ensure Nepal consistency
+     if (countryID === 4) {
+       voucher.Country = "Nepal"; // Enforce consistency
+     }
 
-      const matchesPnr =
-        filterPnr === "" ||
-        voucher.Pnr?.toLowerCase().includes(filterPnr.toLowerCase());
+     const isNepal =
+     countryMainLower === "nepal" ||
+       countryLower === "nepal" &&
+       countryID === 4 ||
+       stateLower.includes("province");
 
-      // const matchesType =
-      //   filterType === "All" ||
-      //   voucher.Types?.toLowerCase() === filterType.toLowerCase();
+     const matchesInvoiceNumber =
+       filterInvoice === null || Number(voucher.InvoiceNo) === filterInvoice;
 
-      return (
- matchesInvoiceNumber && matchesDate && matchesPnr
-      );
-    });
-  }, [vouchers, filterInvoice, filterDate, filterPnr]);
+     const matchesDate =
+       !filterDate || isSameDay(parseISO(voucher.SaleEntryDate), filterDate);
+
+     const matchesPnr =
+       filterPnr === "" ||
+       voucher.Pnr?.toLowerCase().includes(filterPnr.toLowerCase());
+
+     return isNepal && matchesInvoiceNumber && matchesDate && matchesPnr;
+   });
+ }, [vouchers, filterInvoice, filterDate, filterPnr]);
+
 
   const currentVouchers = useMemo(() => {
     return filteredVouchers.slice(indexOfFirstVoucher, indexOfLastVoucher);
   }, [filteredVouchers, indexOfFirstVoucher, indexOfLastVoucher]);
 
-  const handleCheckboxChange = (index: number) => {
+  const handleCheckboxChange = (invoiceNo: number) => {
     const updatedSelection = [...selectedEntries];
-    if (updatedSelection.includes(index)) {
-      updatedSelection.splice(updatedSelection.indexOf(index), 1);
+
+    if (updatedSelection.includes(invoiceNo)) {
+      // Remove selection if already selected
+      updatedSelection.splice(updatedSelection.indexOf(invoiceNo), 1);
     } else {
-      updatedSelection.push(index);
+      // Add selection
+      updatedSelection.push(invoiceNo);
     }
+
     onSelect(updatedSelection);
   };
 
+
   const handleSelectAllChange = () => {
     setSelectAll(!selectAll);
-    onSelect(selectAll ? [] : vouchers.map((_, index) => index));
+
+    if (!selectAll) {
+      // Select only currently filtered vouchers using their InvoiceID
+      onSelect(filteredVouchers.map((voucher) => voucher.InvoiceNo));
+    } else {
+      // Deselect all
+      onSelect([]);
+    }
   };
+
 
   useEffect(() => {
     setIsMounted(true);
@@ -175,6 +203,7 @@ export default function VoucherList({
             <TableHead>Invoice No</TableHead>
             <TableHead>Sale ID</TableHead>
             <TableHead>Invoice Entry Date</TableHead>
+            <TableHead>Address</TableHead>
             <TableHead>PNR</TableHead>
             <TableHead>Account Name</TableHead>
             <TableHead>Pax Qty</TableHead>
@@ -184,14 +213,19 @@ export default function VoucherList({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {currentVouchers.map((voucher, index) => (
+          {currentVouchers.map((voucher) => (
             <TableRow key={voucher.InvoiceID}>
               <TableCell>
                 <Checkbox
-                  checked={selectAll || selectedEntries.includes(index)}
-                  onCheckedChange={() => handleCheckboxChange(index)}
+                  checked={
+                    selectAll || selectedEntries.includes(voucher.InvoiceNo)
+                  }
+                  onCheckedChange={() =>
+                    handleCheckboxChange(voucher.InvoiceNo)
+                  }
                 />
               </TableCell>
+
               <TableCell>{voucher.InvoiceID}</TableCell>
               <TableCell>{voucher.InvoiceNo}</TableCell>
               <TableCell>{voucher.SaleID}</TableCell>
@@ -200,6 +234,11 @@ export default function VoucherList({
                   parseISO(voucher.InvoiceEntryDate),
                   "MM/dd/yyyy HH:mm:ss"
                 )}
+              </TableCell>
+              <TableCell>
+                {voucher.Country
+                  ? `${voucher.CityName}, ${voucher.Country}`
+                  : voucher.CityName}
               </TableCell>
               <TableCell>{voucher.Pnr}</TableCell>
               <TableCell>{voucher.AccountName}</TableCell>
