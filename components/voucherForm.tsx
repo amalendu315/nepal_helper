@@ -218,14 +218,14 @@ const VoucherForm = () => {
       const vouchersPerRequest = 50;
       const currentDate = new Date().toISOString().split("T")[0];
       setSubmissionDate(currentDate);
-      const sortedSelectedEntries = [...selectedEntries].sort((a, b) => a - b);
+      // const sortedSelectedEntries = [...selectedEntries].sort((a, b) => a - b);
       const firstSelectedVoucher =
-        vouchers.find((v) => v.InvoiceNo === sortedSelectedEntries[0]) ?? null;
+        vouchers.find((v) => v.InvoiceNo === selectedEntries[0]) ?? null;
       const lastSelectedVoucher =
         vouchers.find(
           (v) =>
             v.InvoiceNo ===
-            sortedSelectedEntries[sortedSelectedEntries.length - 1]
+            selectedEntries[selectedEntries.length - 1]
         ) ?? null;
       // Validate voucher existence
       if (!firstSelectedVoucher || !lastSelectedVoucher) {
