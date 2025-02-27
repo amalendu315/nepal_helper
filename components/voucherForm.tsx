@@ -111,19 +111,11 @@ const VoucherForm = () => {
                 stateLower.includes("province"))
             );
           })
-          // .sort((a: _Voucher, b: _Voucher) => {
-          //   const invoiceA = Number(a.InvoiceNo) || 0;
-          //   const invoiceB = Number(b.InvoiceNo) || 0;
-
-          //   if (invoiceA !== invoiceB) {
-          //     return invoiceA - invoiceB;
-          //   }
-
-          //   const dateA = new Date(a.SaleEntryDate).getTime() || 0;
-          //   const dateB = new Date(b.SaleEntryDate).getTime() || 0;
-
-          //   return dateB - dateA;
-          // });
+          .sort(
+            (a:_Voucher, b:_Voucher) =>
+              new Date(a.SaleEntryDate).getTime() -
+              new Date(b.SaleEntryDate).getTime()
+          );
 
         if (nepalVouchers.length > 0) {
           setVouchers(nepalVouchers);
@@ -153,6 +145,7 @@ const VoucherForm = () => {
       setIsSalesLoading(false);
     }
   };
+
 
   const handleExportToExcel = () => {
     if (vouchers.length === 0) {
@@ -219,12 +212,26 @@ const VoucherForm = () => {
       const currentDate = new Date().toISOString().split("T")[0];
       setSubmissionDate(currentDate);
       // const sortedSelectedEntries = [...selectedEntries].sort((a, b) => a - b);
+       const sortedVouchers = [...selectedEntries]
+         .map((invoiceNo) => vouchers.find((v) => v.InvoiceNo === invoiceNo))
+         .filter(Boolean) // Remove null values
+         .sort(
+           (a, b) =>
+             new Date(a!.SaleEntryDate).getTime() -
+             new Date(b!.SaleEntryDate).getTime()
+         );
+
+       if (sortedVouchers.length === 0) {
+         toast.error("No valid vouchers found!");
+         setIsCloudLoading(false);
+         return;
+       }
       const firstSelectedVoucher =
-        vouchers.find((v) => v.InvoiceNo === selectedEntries[0]) ?? null;
+        sortedVouchers.find((v) => v?.InvoiceNo === selectedEntries[0]) ?? null;
       const lastSelectedVoucher =
-        vouchers.find(
+        sortedVouchers.find(
           (v) =>
-            v.InvoiceNo ===
+            v?.InvoiceNo ===
             selectedEntries[selectedEntries.length - 1]
         ) ?? null;
       // Validate voucher existence
@@ -245,7 +252,7 @@ const VoucherForm = () => {
         selectedEntries
           .slice(i, i + vouchersPerRequest)
           .forEach((invoiceNo) => {
-            const voucher = vouchers?.find((v) => v.InvoiceNo === invoiceNo);
+            const voucher = sortedVouchers?.find((v) => v?.InvoiceNo === invoiceNo);
             if (!voucher) {
               console.warn(`⚠️ Voucher with InvoiceNo ${invoiceNo} not found!`);
               return;
