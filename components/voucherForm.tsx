@@ -111,19 +111,19 @@ const VoucherForm = () => {
                 stateLower.includes("province"))
             );
           })
-          .sort((a: _Voucher, b: _Voucher) => {
-            const invoiceA = Number(a.InvoiceNo) || 0;
-            const invoiceB = Number(b.InvoiceNo) || 0;
+          // .sort((a: _Voucher, b: _Voucher) => {
+          //   const invoiceA = Number(a.InvoiceNo) || 0;
+          //   const invoiceB = Number(b.InvoiceNo) || 0;
 
-            if (invoiceA !== invoiceB) {
-              return invoiceA - invoiceB;
-            }
+          //   if (invoiceA !== invoiceB) {
+          //     return invoiceA - invoiceB;
+          //   }
 
-            const dateA = new Date(a.SaleEntryDate).getTime() || 0;
-            const dateB = new Date(b.SaleEntryDate).getTime() || 0;
+          //   const dateA = new Date(a.SaleEntryDate).getTime() || 0;
+          //   const dateB = new Date(b.SaleEntryDate).getTime() || 0;
 
-            return dateB - dateA;
-          });
+          //   return dateB - dateA;
+          // });
 
         if (nepalVouchers.length > 0) {
           setVouchers(nepalVouchers);
