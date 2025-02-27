@@ -5,7 +5,7 @@ import AuthContext from "@/context/AuthContext";
 
 const SideHeader = () => {
   const { isAuthenticated } = useContext(AuthContext);
-  const { lastUpdatedVoucherDate, submissionDate, pushedVoucherRanges } =
+  const { lastUpdatedVoucherDate, submissionDate, pushedVoucherRanges, lastVoucherNumber } =
     useContext(VoucherContext);
 
   function getRandomColor() {
@@ -33,6 +33,12 @@ const SideHeader = () => {
               Submission Date:{" "}
               <span className="text-md font-bold text-green-500">
                 {submissionDate || "N/A"}
+              </span>
+            </p>
+            <p className="flex flex-col items-center justify-center">
+              Last Voucher Number:{" "}
+              <span className="text-md font-bold text-green-500">
+                {lastVoucherNumber || "N/A"}
               </span>
             </p>
             <div className="flex flex-col items-center justify-center">
