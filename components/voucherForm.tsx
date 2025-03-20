@@ -205,6 +205,20 @@ const VoucherForm = () => {
     }
   };
 
+  const fetchExchangeRate = async () => {
+    try {
+      const response = await fetch(
+        "https://api.exchangerate-api.com/v4/latest/INR"
+      );
+      const data = await response.json();
+      return data.rates["NPR"] || 1.6; // Default to 1.6 if not found
+    } catch (error) {
+      console.error("Error fetching exchange rate:", error);
+      return 1.6; // Fallback rate
+    }
+  };
+
+
   const handleSubmitToCloud = async () => {
     try {
       setIsCloudLoading(true);
@@ -251,7 +265,7 @@ const VoucherForm = () => {
 
         selectedEntries
           .slice(i, i + vouchersPerRequest)
-          .forEach((invoiceNo) => {
+          .forEach(async (invoiceNo) => {
             const voucher = sortedVouchers?.find((v) => v?.InvoiceNo === invoiceNo);
             if (!voucher) {
               console.warn(`⚠️ Voucher with InvoiceNo ${invoiceNo} not found!`);
@@ -296,6 +310,12 @@ const VoucherForm = () => {
             const formattedVoucherNumber = `AQNS/${lastUsedVoucherNumber
               .toString()
               .padStart(lastUsedVoucherNumber >= 1000 ? 4 : 3, "0")}`;
+            const exchangeRate = await fetchExchangeRate() || 1.6;
+            const convertedAmountNPR = (
+              voucher.FinalRate *
+              voucher.pax *
+              exchangeRate
+            ).toFixed(2);
             dataForSales.push({
               branchName: "AirIQ Nepal",
               vouchertype: "Sales",
@@ -310,14 +330,14 @@ const VoucherForm = () => {
                   lineno: 1,
                   ledgerName: voucher.AccountName,
                   ledgerAddress: `${voucher.Add1}, ${voucher.Add2}, ${voucher.CityName} - ${voucher.Pin}`,
-                  amount: (voucher.FinalRate * voucher.pax).toFixed(2),
+                  amount: convertedAmountNPR,
                   drCr: "dr",
                   description: [],
                 },
                 {
                   lineno: 2,
                   ledgerName: "Domestic Base Fare",
-                  amount: (voucher.FinalRate * voucher.pax).toFixed(2),
+                  amount: convertedAmountNPR,
                   drCr: "cr",
                   description: [
                     `${voucher.AirlineCode}`,
