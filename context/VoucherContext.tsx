@@ -1,7 +1,6 @@
 "use client";
 import { createContext, useState, useEffect } from "react";
 
-// Define a type for the pushed voucher ranges
 export type PushedVoucherRanges = {
   [key: string]: {
     startDate: string;
@@ -11,7 +10,6 @@ export type PushedVoucherRanges = {
   };
 };
 
-// Define a type for the voucher context
 interface VoucherContextType {
   lastUpdatedVoucher: any | null;
   setLastUpdatedVoucher: (voucher: any | null) => void;
@@ -23,9 +21,10 @@ interface VoucherContextType {
   setPushedVoucherRanges: (ranges: PushedVoucherRanges) => void;
   lastVoucherNumber: number;
   setLastVoucherNumber: (newNumber: number) => void;
+  pushedInvoiceNos: number[];
+  setPushedInvoiceNos: (ids: number[]) => void;
 }
 
-// Create context with default values
 const VoucherContext = createContext<VoucherContextType>({
   lastUpdatedVoucher: null,
   setLastUpdatedVoucher: () => {},
@@ -37,6 +36,8 @@ const VoucherContext = createContext<VoucherContextType>({
   setPushedVoucherRanges: () => {},
   lastVoucherNumber: 0,
   setLastVoucherNumber: () => {},
+  pushedInvoiceNos: [],
+  setPushedInvoiceNos: () => {},
 });
 
 export const VoucherProvider = ({
@@ -52,10 +53,10 @@ export const VoucherProvider = ({
   const [submissionDate, setSubmissionDate] = useState<string>("");
   const [pushedVoucherRanges, setPushedVoucherRanges] =
     useState<PushedVoucherRanges>({});
-      const [lastVoucherNumber, setLastVoucherNumber] = useState<number>(0);
+  const [lastVoucherNumber, setLastVoucherNumberState] = useState<number>(0);
+  const [pushedInvoiceNos, setPushedInvoiceNosState] = useState<number[]>([]);
 
-
-  // Load values from localStorage on mount
+  // Load from localStorage
   useEffect(() => {
     try {
       const storedVoucher = localStorage.getItem("lastUpdatedVoucher");
@@ -77,16 +78,22 @@ export const VoucherProvider = ({
       if (storedPushedRanges) {
         setPushedVoucherRanges(JSON.parse(storedPushedRanges));
       }
+
       const storedVoucherNumber = localStorage.getItem("lastVoucherNumber");
       if (storedVoucherNumber) {
-        setLastVoucherNumber(parseInt(storedVoucherNumber, 10));
+        setLastVoucherNumberState(parseInt(storedVoucherNumber, 10));
+      }
+
+      const storedPushedNos = localStorage.getItem("pushedInvoiceNos");
+      if (storedPushedNos) {
+        setPushedInvoiceNosState(JSON.parse(storedPushedNos));
       }
     } catch (error) {
       console.error("Error loading localStorage data:", error);
     }
   }, []);
 
-  // Save values to localStorage when updated
+  // Save to localStorage
   useEffect(() => {
     try {
       if (lastUpdatedVoucher) {
@@ -107,6 +114,7 @@ export const VoucherProvider = ({
           JSON.stringify(pushedVoucherRanges)
         );
       }
+      localStorage.setItem("lastVoucherNumber", lastVoucherNumber.toString());
     } catch (error) {
       console.error("Error saving to localStorage:", error);
     }
@@ -115,7 +123,19 @@ export const VoucherProvider = ({
     lastUpdatedVoucherDate,
     submissionDate,
     pushedVoucherRanges,
+    lastVoucherNumber,
   ]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "pushedInvoiceNos",
+        JSON.stringify(pushedInvoiceNos)
+      );
+    } catch (error) {
+      console.error("Error saving pushedInvoiceNos:", error);
+    }
+  }, [pushedInvoiceNos]);
 
   return (
     <VoucherContext.Provider
@@ -130,8 +150,13 @@ export const VoucherProvider = ({
         setPushedVoucherRanges,
         lastVoucherNumber,
         setLastVoucherNumber: (newNumber: number) => {
-          setLastVoucherNumber(newNumber);
+          setLastVoucherNumberState(newNumber);
           localStorage.setItem("lastVoucherNumber", newNumber.toString());
+        },
+        pushedInvoiceNos,
+        setPushedInvoiceNos: (ids: number[]) => {
+          setPushedInvoiceNosState(ids);
+          localStorage.setItem("pushedInvoiceNos", JSON.stringify(ids));
         },
       }}
     >

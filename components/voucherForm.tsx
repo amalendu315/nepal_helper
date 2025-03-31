@@ -72,6 +72,8 @@ const VoucherForm = () => {
     pushedVoucherRanges,
     lastVoucherNumber,
     setLastVoucherNumber,
+    pushedInvoiceNos,
+    setPushedInvoiceNos,
   } = React.useContext(VoucherContext);
 
   const { setTotalSum } = React.useContext(SumContext);
@@ -212,6 +214,7 @@ const VoucherForm = () => {
       );
       const data = await response.json();
       return data.rates["NPR"] || 1.6; // Default to 1.6 if not found
+      // return 1.6; // Fallback rate
     } catch (error) {
       console.error("Error fetching exchange rate:", error);
       return 1.6; // Fallback rate
@@ -225,30 +228,40 @@ const VoucherForm = () => {
       const vouchersPerRequest = 50;
       const currentDate = new Date().toISOString().split("T")[0];
       setSubmissionDate(currentDate);
-      // const sortedSelectedEntries = [...selectedEntries].sort((a, b) => a - b);
-       const sortedVouchers = [...selectedEntries]
-         .map((invoiceNo) => vouchers.find((v) => v.InvoiceNo === invoiceNo))
-         .filter(Boolean) // Remove null values
-         .sort(
-           (a, b) =>
-             new Date(a!.SaleEntryDate).getTime() -
-             new Date(b!.SaleEntryDate).getTime()
-         );
 
-       if (sortedVouchers.length === 0) {
-         toast.error("No valid vouchers found!");
-         setIsCloudLoading(false);
-         return;
-       }
+      const sortedVouchers = [...selectedEntries]
+        .map((invoiceNo) => vouchers.find((v) => v.InvoiceNo === invoiceNo))
+        .filter(Boolean)
+        .sort(
+          (a, b) =>
+            new Date(a!.SaleEntryDate).getTime() -
+            new Date(b!.SaleEntryDate).getTime()
+        );
+
+      const alreadyPushed = sortedVouchers.filter((v) =>
+        pushedInvoiceNos.includes(v!.InvoiceNo)
+      );
+
+      if (alreadyPushed.length > 0) {
+        const alreadyNos = alreadyPushed.map((v) => v!.InvoiceNo).join(", ");
+        toast.error(`These vouchers are already submitted: ${alreadyNos}`);
+        setIsCloudLoading(false);
+        return;
+      }
+
+      if (sortedVouchers.length === 0) {
+        toast.error("No valid vouchers found!");
+        setIsCloudLoading(false);
+        return;
+      }
+
       const firstSelectedVoucher =
         sortedVouchers.find((v) => v?.InvoiceNo === selectedEntries[0]) ?? null;
       const lastSelectedVoucher =
         sortedVouchers.find(
-          (v) =>
-            v?.InvoiceNo ===
-            selectedEntries[selectedEntries.length - 1]
+          (v) => v?.InvoiceNo === selectedEntries[selectedEntries.length - 1]
         ) ?? null;
-      // Validate voucher existence
+
       if (!firstSelectedVoucher || !lastSelectedVoucher) {
         toast.error("Selected vouchers not found!");
         setIsCloudLoading(false);
@@ -256,66 +269,63 @@ const VoucherForm = () => {
       }
 
       const rangeKey = `${dateRange.start}-${dateRange.end}`;
-
       let lastUsedVoucherNumber = lastVoucherNumber || 0;
 
       for (let i = 0; i < selectedEntries.length; i += vouchersPerRequest) {
         const dataForPurchase: DataForPurchase = [];
         const dataForSales: DataForSales = [];
+        const batch = selectedEntries.slice(i, i + vouchersPerRequest);
 
-        selectedEntries
-          .slice(i, i + vouchersPerRequest)
-          .forEach(async (invoiceNo) => {
-            const voucher = sortedVouchers?.find((v) => v?.InvoiceNo === invoiceNo);
-            if (!voucher) {
-              console.warn(`⚠️ Voucher with InvoiceNo ${invoiceNo} not found!`);
-              return;
-            }
-            if (
-              pushedVoucherRanges[rangeKey] &&
-              (voucher.InvoiceNo ===
-                pushedVoucherRanges[rangeKey].startVoucher ||
-                voucher.InvoiceNo === pushedVoucherRanges[rangeKey].endVoucher)
-            ) {
-              toast.error(`Voucher ${voucher.InvoiceNo} already pushed!`);
-              return undefined;
-            }
+        const exchangeRate = await fetchExchangeRate(); // fetch once per batch
 
-             dataForPurchase.push({
-               branchName: "AirIQ Nepal",
-               vouchertype: "Purchase",
-               voucherno: `AQNP/${voucher.InvoiceNo}`,
-               voucherdate: voucher.SaleEntryDate.split("T")[0].replace(/-/g, "/"),
-               narration: `${voucher.Prefix}-${voucher.SaleID}, PNR :- ${voucher.Pnr}, PAX :- ${voucher.pax}`,
-               ledgerAllocation: [
-                 {
-                   lineno: 1,
-                   ledgerName: "Air IQ",
-                   ledgerAddress: `Sevoke Road, Siliguri, West Bengal - 734001`,
-                   amount: (voucher.FinalRate * voucher.pax).toFixed(2),
-                   drCr: "cr",
-                   description: [],
-                 },
-                 {
-                   lineno: 2,
-                   ledgerName: "Domestic Base Fare Purchase",
-                   amount: (voucher.FinalRate * voucher.pax).toFixed(2),
-                   drCr: "dr",
-                   description: [],
-                 },
-               ],
-             });
+        await Promise.all(
+          batch.map(async (invoiceNo) => {
+            const voucher = sortedVouchers.find(
+              (v) => v?.InvoiceNo === invoiceNo
+            );
+            if (!voucher) return;
 
+            // PURCHASE
+            dataForPurchase.push({
+              branchName: "AirIQ Nepal",
+              vouchertype: "Purchase",
+              voucherno: `AQNP/${voucher.InvoiceNo}`,
+              voucherdate: voucher.SaleEntryDate.split("T")[0].replace(
+                /-/g,
+                "/"
+              ),
+              narration: `${voucher.Prefix}-${voucher.SaleID}, PNR :- ${voucher.Pnr}, PAX :- ${voucher.pax}`,
+              ledgerAllocation: [
+                {
+                  lineno: 1,
+                  ledgerName: "Air IQ",
+                  ledgerAddress: "Sevoke Road, Siliguri, West Bengal - 734001",
+                  amount: (voucher.FinalRate * voucher.pax).toFixed(2),
+                  drCr: "cr",
+                  description: [],
+                },
+                {
+                  lineno: 2,
+                  ledgerName: "Domestic Base Fare Purchase",
+                  amount: (voucher.FinalRate * voucher.pax).toFixed(2),
+                  drCr: "dr",
+                  description: [],
+                },
+              ],
+            });
+
+            // SALES
             lastUsedVoucherNumber += 1;
             const formattedVoucherNumber = `AQNS/${lastUsedVoucherNumber
               .toString()
               .padStart(lastUsedVoucherNumber >= 1000 ? 4 : 3, "0")}`;
-            const exchangeRate = await fetchExchangeRate() || 1.6;
+
             const convertedAmountNPR = (
               voucher.FinalRate *
               voucher.pax *
               exchangeRate
             ).toFixed(2);
+
             dataForSales.push({
               branchName: "AirIQ Nepal",
               vouchertype: "Sales",
@@ -347,47 +357,44 @@ const VoucherForm = () => {
                 },
               ],
             });
-          });
+          })
+        );
 
-        if (dataForPurchase.some((voucher) => voucher === undefined)) {
-          toast.error(`Some selected vouchers are already pushed!`);
-          throw new Error(`DataForCloud contains undefined vouchers!`);
-        }
-        if (dataForSales.some((voucher) => voucher === undefined)) {
-          toast.error(`Some selected vouchers are already pushed!`);
-          throw new Error(`DataForCloud contains undefined vouchers!`);
-        }
-        console.log("dataForPurchase", dataForPurchase);
-        console.log("dataForSales", dataForSales);
-         await submitVouchers(dataForPurchase, "purchase");
-         await submitVouchers(dataForSales, "sale");
+        // Submit batch
+        await submitVouchers(dataForPurchase, "purchase");
+        await submitVouchers(dataForSales, "sale");
+
+        // Save pushed invoice numbers
+        setPushedInvoiceNos([...new Set([...pushedInvoiceNos, ...batch])]);
       }
+
       setLastVoucherNumber(lastUsedVoucherNumber);
       toast.success("All vouchers submitted successfully!");
-       setPushedVoucherRanges({
-         ...pushedVoucherRanges,
-         [rangeKey]: {
-           startDate: format(
-             new Date(firstSelectedVoucher.SaleEntryDate),
-             "dd/MM/yyyy"
-           ),
-           endDate: format(
-             new Date(lastSelectedVoucher.SaleEntryDate),
-             "dd/MM/yyyy"
-           ),
-           startVoucher: firstSelectedVoucher.InvoiceNo,
-           endVoucher: lastSelectedVoucher.InvoiceNo,
-         },
-       });
 
-       setLastUpdatedVoucher(lastSelectedVoucher);
-       const lastVoucherDate = lastSelectedVoucher.InvoiceEntryDate;
-       if (lastVoucherDate) {
-         const formattedDate = new Date(lastVoucherDate)
-           .toISOString()
-           .split("T")[0];
-         setLastUpdatedVoucherDate(formattedDate);
-       }
+      setPushedVoucherRanges({
+        ...pushedVoucherRanges,
+        [rangeKey]: {
+          startDate: format(
+            new Date(firstSelectedVoucher.SaleEntryDate),
+            "dd/MM/yyyy"
+          ),
+          endDate: format(
+            new Date(lastSelectedVoucher.SaleEntryDate),
+            "dd/MM/yyyy"
+          ),
+          startVoucher: firstSelectedVoucher.InvoiceNo,
+          endVoucher: lastSelectedVoucher.InvoiceNo,
+        },
+      });
+
+      setLastUpdatedVoucher(lastSelectedVoucher);
+      const lastVoucherDate = lastSelectedVoucher.InvoiceEntryDate;
+      if (lastVoucherDate) {
+        const formattedDate = new Date(lastVoucherDate)
+          .toISOString()
+          .split("T")[0];
+        setLastUpdatedVoucherDate(formattedDate);
+      }
 
       toast.success("Vouchers Submitted Successfully!");
       setIsCloudLoading(false);
@@ -397,6 +404,7 @@ const VoucherForm = () => {
       setIsCloudLoading(false);
     }
   };
+
 
   useEffect(() => {
     setIsMounted(true);
@@ -447,14 +455,24 @@ const VoucherForm = () => {
             >
               Fetch Purchase Entries
             </Button> */}
+            <div className="flex items-center gap-2 mt-5">
+              <Button
+                onClick={handleSubmitToCloud}
+                disabled={isCloudLoading || selectedEntries.length === 0}
+              >
+                Submit to Cloud
+              </Button>
+              {selectedEntries.length > 0 && (
+                <span className="text-sm text-muted-foreground bg-gray-100 px-2 py-1 rounded">
+                  🧾 {selectedEntries.length} selected
+                </span>
+              )}
+            </div>
             <Button
               className="mt-5"
-              onClick={handleSubmitToCloud}
-              disabled={isCloudLoading}
+              onClick={handleExportToExcel}
+              disabled={selectedEntries.length === 0}
             >
-              Submit to Cloud
-            </Button>
-            <Button className="mt-5" onClick={handleExportToExcel}>
               Export to Excel
             </Button>
           </div>
@@ -466,6 +484,14 @@ const VoucherForm = () => {
           onSelect={setSelectedEntries}
           selectedEntries={selectedEntries}
         />
+      )}
+      {selectedEntries.length > 0 && (
+        <div className="text-center mt-4">
+          <span className="inline-block text-sm text-muted-foreground bg-green-100 text-green-800 px-3 py-1 rounded-full">
+            🧾 {selectedEntries.length} voucher
+            {selectedEntries.length > 1 ? "s" : ""} selected
+          </span>
+        </div>
       )}
     </>
   );
