@@ -29,7 +29,7 @@ export async function POST(request: Request) {
         },
       }
     );
-
+    console.log(saleCloudAuthToken);
     return NextResponse.json(response?.data);
   } catch (error) {
     console.error("Error submitting data:", error);
