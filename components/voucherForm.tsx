@@ -269,7 +269,7 @@ const VoucherForm = () => {
       }
 
       const rangeKey = `${dateRange.start}-${dateRange.end}`;
-      let lastUsedVoucherNumber = lastVoucherNumber || 0;
+      let lastUsedVoucherNumber = 584;
 
       for (let i = 0; i < selectedEntries.length; i += vouchersPerRequest) {
         const dataForPurchase: DataForPurchase = [];
