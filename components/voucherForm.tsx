@@ -70,7 +70,6 @@ const VoucherForm = () => {
     setLastUpdatedVoucher,
     setPushedVoucherRanges,
     pushedVoucherRanges,
-    lastVoucherNumber,
     setLastVoucherNumber,
     pushedInvoiceNos,
     setPushedInvoiceNos,
